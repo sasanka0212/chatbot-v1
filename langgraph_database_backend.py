@@ -12,6 +12,7 @@ from langgraph.prebuilt import ToolNode, tools_condition
 
 import sqlite3
 import requests
+import os
 
 load_dotenv()
 
@@ -52,7 +53,7 @@ def stock_price(symbol: str):
     Fetch stock price by the given symbol(e.g. AAPL, TSLA)
     Use given API key for fetch the stock price details.
     """
-    url =  f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={symbol}&apikey=8BPSFWK68PILFB1U"
+    url =  f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={symbol}&apikey={os.environ['STOCK_API_KEY']}"
     response = requests.get(url=url)
     return response.json()
 
