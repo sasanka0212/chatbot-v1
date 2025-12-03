@@ -5,4 +5,4 @@
 2. Streamlit
 3. LangChain
 4. LangGraph
-5. SqLite
+5. Postgresql
