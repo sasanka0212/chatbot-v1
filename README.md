@@ -2,7 +2,10 @@
 
 ## Tech Stack Used
 1. Python
-2. Streamlit
-3. LangChain
-4. LangGraph
-5. SqLite
+2. Postgresql
+
+## Tools Used
+1. LangChain
+2. LangGraph
+3. Streamlit
+4. Google Gemini
