@@ -16,7 +16,7 @@ load_dotenv()
 # IMPORTANT: patch LangGraph Postgres checkpointer to use our pool
 # ------------------------------------------------------------------
 
-DB_URI = os.getenv("DB_URL")
+DB_URI = os.environ["DB_URL"]
 
 @st.cache_resource
 def get_pool():

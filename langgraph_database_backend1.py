@@ -76,7 +76,7 @@ tool_node = ToolNode([calculator, search_tool, stock_price])
 # Estalish the database connection
 #conn = sqlite3.connect('chatarena.db', check_same_thread=False)
 
-DB_URI = os.getenv("DB_URL")
+DB_URI = os.environ["DB_URL"]
 #checkpoint = SqliteSaver(conn=conn)
 
 with PostgresSaver.from_conn_string(DB_URI) as checkpoint:
