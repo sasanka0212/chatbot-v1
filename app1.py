@@ -27,6 +27,8 @@ pool = get_pool()
 
 # quick pool smoke test (safe in Streamlit because it's inside cache_resource)
 with pool.connection() as conn:
+    # newly added dated 04-12-2025
+    conn.autocommit = True
     with conn.cursor() as cur:
         cur.execute("SELECT 1")
         _ = cur.fetchone()
