@@ -85,7 +85,7 @@ def patch_langgraph_postgres_checkpointer(pool: ConnectionPool):
                     # heuristics: look for classes with 'Checkpointer' in the name or with an existing _cursor
                     if "Checkpointer" in attr.__name__ or hasattr(attr, "_cursor"):
                         attr._cursor = _cursor
-                        st.info(f"Patched {attr.__name__} in langgraph.checkpoint.postgres to use ConnectionPool.")
+                        #st.info(f"Patched {attr.__name__} in langgraph.checkpoint.postgres to use ConnectionPool.")
                         patched_any = True
             except Exception:
                 continue
@@ -100,10 +100,9 @@ patched = patch_langgraph_postgres_checkpointer(pool)
 # import the module (we will also import the chatbot symbol for normal use)
 # reload it to ensure it picks up our patched checkpointer class
 # ------------------------------------------------------------------
-import langgraph_database_backend1 as lgdb
+import langgraph_mcp_backend1 as lgdb
 lgdb = importlib.reload(lgdb)
-#from langgraph_database_backend1 import chatbot  # keep the original import for direct use
-from langgraph_database_backend1 import chatbot
+from langgraph_mcp_backend1 import chatbot, submit_async_task
 
 st.markdown(
     """
@@ -302,29 +301,64 @@ if user_input:
         st.text(user_input)
         st.session_state['message_history'].append({'role': 'user', 'content': user_input})
 
-    with st.chat_message('assistant'):
+    # Assistant streaming block
+    with st.chat_message("assistant"):
+        # Use a mutable holder so the generator can set/modify it
         status_holder = {"box": None}
-        def ai_response():
-            #use safe_stream_call that will reload backend on OperationalError and retry
-            stream_gen = safe_stream_call({'messages': [HumanMessage(content=user_input)]}, config=config, stream_mode='messages')
-            for message_chunk, metadata in stream_gen:
+
+        def ai_only_stream():
+            event_queue: queue.Queue = queue.Queue()
+
+            async def run_stream():
+                try:
+                    async for message_chunk, metadata in chatbot.astream(
+                        {"messages": [HumanMessage(content=user_input)]},
+                        config=config,
+                        stream_mode="messages",
+                    ):
+                        event_queue.put((message_chunk, metadata))
+                except Exception as exc:
+                    event_queue.put(("error", exc))
+                finally:
+                    event_queue.put(None)
+
+            submit_async_task(run_stream())
+
+            while True:
+                item = event_queue.get()
+                if item is None:
+                    break
+                message_chunk, metadata = item
+                if message_chunk == "error":
+                    raise metadata
+
+                # Lazily create & update the SAME status container when any tool runs
                 if isinstance(message_chunk, ToolMessage):
                     tool_name = getattr(message_chunk, "name", "tool")
-                    if status_holder['box'] is None:
-                        status_holder['box'] = st.status(f"🔨 Using {tool_name} ...", expanded=True)
+                    if status_holder["box"] is None:
+                        status_holder["box"] = st.status(
+                            f"🔧 Using `{tool_name}` …", expanded=True
+                        )
                     else:
-                        status_holder['box'].update(label=f"🔨 Using {tool_name} ...", state="running", expanded=True)
+                        status_holder["box"].update(
+                            label=f"🔧 Using `{tool_name}` …",
+                            state="running",
+                            expanded=True,
+                        )
+
+                # Stream ONLY assistant tokens
                 if isinstance(message_chunk, AIMessage):
                     yield message_chunk.content
 
-        ai_message = st.write_stream(ai_response)
-        if status_holder['box'] is not None:
-            status_holder['box'].update(label=f"🔨 Tool finished ...", state="complete", expanded=False)
-        st.session_state['message_history'].append({'role': 'assistant', 'content': ai_message})
+        ai_message = st.write_stream(ai_only_stream())
 
-        # Update label for the active thread with assistant's first chunk (if any)
-        try:
-            if ai_message:
-                st.session_state['thread_labels'][st.session_state['thread_id']] = truncate_label(str(ai_message))
-        except Exception:
-            pass 
+        # Finalize only if a tool was actually used
+        if status_holder["box"] is not None:
+            status_holder["box"].update(
+                label="✅ Tool finished", state="complete", expanded=False
+            )
+
+    # Save assistant message
+    st.session_state["message_history"].append(
+        {"role": "assistant", "content": ai_message}
+    )
