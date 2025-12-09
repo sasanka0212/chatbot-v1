@@ -295,8 +295,30 @@ config = {
     'metadata': {'thread_id': st.session_state['thread_id']},
     'run_name': 'chat-turn'
 }
-
 # ------------ Chat UI ------------- #
+
+def _extract_text(content) -> str:
+    """Extract plain text from LangChain/LC-style content structures."""
+    # If it's already a string, just return it
+    if isinstance(content, str):
+        return content
+
+    texts = []
+
+    def walk(node):
+        if isinstance(node, str):
+            texts.append(node)
+        elif isinstance(node, dict):
+            # OpenAI-style content blocks: {"type": "text", "text": "..."}
+            if node.get("type") == "text" and "text" in node:
+                texts.append(node["text"])
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(content)
+    return "".join(texts)
+
 if user_input:
     with st.chat_message('user'):
         st.text(user_input)
@@ -349,7 +371,10 @@ if user_input:
 
                 # Stream ONLY assistant tokens
                 if isinstance(message_chunk, AIMessage):
-                    yield message_chunk.content
+                    # updated 09-12-2025
+                    text = _extract_text(message_chunk.content)
+                    if text:
+                        yield text
 
         ai_message = st.write_stream(ai_only_stream())
 
