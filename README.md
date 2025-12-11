@@ -9,3 +9,4 @@
 2. LangGraph
 3. Streamlit
 4. Google Gemini
+5. Model Context Protocol
