@@ -192,9 +192,18 @@ def rag_tool(query: str, config: RunnableConfig) -> dict:
 # build MCP client
 client = MultiServerMCPClient(
     {
-        "expense": {
+        "expense-tracer": {
             "transport": "streamable_http",
             "url": "https://sheer-copper-tarantula.fastmcp.app/mcp"
+        },
+        "manim-server": {
+            "command": "/Users/User/AppData/Local/Programs/Python/Python312/python.exe",
+            "args": [
+                "/Users/User/Desktop/manim-mcp-server/src/manim_server.py"
+            ],
+            "env": {
+                "MANIM_EXECUTABLE": "/Users/User/AppData/Local/Programs/Python/Python312/Scripts/manim.exe"
+            }
         }
     }
 )
